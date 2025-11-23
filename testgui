@@ -1,0 +1,70 @@
+-- 1. SETUP VARIABEL & SERVICE
+local Players = game:GetService("Players")
+local CoreGui = game:GetService("CoreGui") -- Biasanya executor pakai CoreGui agar UI tidak terdeteksi game
+local player = Players.LocalPlayer
+
+-- Hapus GUI lama jika ada (biar tidak menumpuk saat di-execute ulang)
+if CoreGui:FindFirstChild("BelajarGUI") then
+    CoreGui.BelajarGUI:Destroy()
+end
+
+-- 2. MEMBUAT WADAH UTAMA (SCREEN GUI)
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "BelajarGUI"
+ScreenGui.Parent = CoreGui -- Masukkan ke layar
+
+-- 3. MEMBUAT FRAME (KOTAK BACKGROUND)
+local MainFrame = Instance.new("Frame")
+MainFrame.Name = "MainFrame"
+MainFrame.Parent = ScreenGui
+MainFrame.BackgroundColor3 = Color3.fromRGB(35, 35, 35) -- Warna Abu Gelap
+MainFrame.Position = UDim2.new(0.5, -100, 0.5, -75) -- Tengah Layar
+MainFrame.Size = UDim2.new(0, 200, 0, 150) -- Ukuran (Lebar, Tinggi)
+MainFrame.Active = true
+MainFrame.Draggable = true -- Biar bisa digeser mouse
+
+-- Judul
+local Title = Instance.new("TextLabel")
+Title.Parent = MainFrame
+Title.Text = "Control Panel"
+Title.TextColor3 = Color3.fromRGB(255, 255, 255)
+Title.Size = UDim2.new(1, 0, 0, 30) -- Full lebar atas
+Title.BackgroundTransparency = 1 -- Transparan
+
+-- 4. MEMBUAT TOMBOL (BUTTON)
+local FarmButton = Instance.new("TextButton")
+FarmButton.Parent = MainFrame
+FarmButton.Position = UDim2.new(0.1, 0, 0.4, 0)
+FarmButton.Size = UDim2.new(0.8, 0, 0, 40)
+FarmButton.Text = "Auto Farm: OFF"
+FarmButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Merah (Off)
+
+-- 5. LOGIKA PROGRAM (EVENT HANDLING)
+local isFarming = false -- Status awal
+
+-- Fungsi Loop Farm (Simulasi)
+local function StartFarming()
+    task.spawn(function()
+        while isFarming do
+            print("👊 Sedang memukul monster... (Cek Console F9)")
+            task.wait(1) -- Tunggu 1 detik
+        end
+    end)
+end
+
+-- Event Saat Tombol Diklik
+FarmButton.MouseButton1Click:Connect(function()
+    isFarming = not isFarming -- Balikkan nilai (True jadi False, False jadi True)
+
+    if isFarming then
+        -- Jika ON
+        FarmButton.Text = "Auto Farm: ON"
+        FarmButton.BackgroundColor3 = Color3.fromRGB(50, 200, 50) -- Hijau
+        StartFarming() -- Jalankan loop
+    else
+        -- Jika OFF
+        FarmButton.Text = "Auto Farm: OFF"
+        FarmButton.BackgroundColor3 = Color3.fromRGB(200, 50, 50) -- Merah
+        print("🛑 Farming Berhenti")
+    end
+end)
