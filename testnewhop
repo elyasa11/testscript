@@ -1,0 +1,75 @@
+--[[
+    TEST SCRIPT: DEEP SEARCH HOP (CURSOR METHOD)
+    Tujuan: Mencari server di 'halaman berikutnya' jika halaman pertama penuh/error.
+    Mengatasi masalah stuck di server yang sama.
+]]
+
+local Http = game:GetService("HttpService")
+local TPS = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+
+print("--- MULAI TES HOP SERVER BARU (DEEP SEARCH) ---")
+
+local function DeepServerHop()
+    local PlaceID = game.PlaceId
+    local cursor = "" -- Penanda halaman
+    local foundServer = false
+    
+    print("Mencari server yang valid...")
+    
+    -- Kita loop sampai ketemu atau sampai capek (max 10 halaman)
+    for i = 1, 10 do
+        local url = "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100"
+        
+        -- Tambahkan cursor jika ada (untuk buka halaman 2, 3, dst)
+        if cursor ~= "" then
+            url = url .. "&cursor=" .. cursor
+        end
+        
+        local success, result = pcall(function()
+            return Http:JSONDecode(game:HttpGet(url))
+        end)
+        
+        if success and result and result.data then
+            -- 1. Cek apakah ada halaman selanjutnya?
+            if result.nextPageCursor then
+                cursor = result.nextPageCursor
+            else
+                -- Jika tidak ada halaman lagi, dan belum ketemu, stop loop
+                if i > 1 then break end
+            end
+            
+            -- 2. Cari server di list ini
+            for _, server in pairs(result.data) do
+                -- Syarat:
+                -- A. Bukan server saat ini
+                -- B. Belum penuh (playing < max)
+                -- C. Ping masuk akal (opsional, tapi membantu)
+                if server.id ~= game.JobId and server.playing < (server.maxPlayers - 1) then
+                    
+                    print("✅ Ditemukan Server!")
+                    print("   ID: " .. server.id)
+                    print("   Pemain: " .. server.playing .. "/" .. server.maxPlayers)
+                    print("   Halaman Pencarian ke: " .. i)
+                    
+                    TPS:TeleportToPlaceInstance(PlaceID, server.id, Players.LocalPlayer)
+                    foundServer = true
+                    break
+                end
+            end
+        end
+        
+        if foundServer then break end
+        print("⚠️ Halaman " .. i .. " penuh/gagal. Mencoba halaman berikutnya...")
+        task.wait(1) -- Jeda dikit biar gak spam API
+    end
+    
+    if not foundServer then
+        print("❌ GAGAL: Tidak menemukan server kosong sama sekali setelah 10 halaman.")
+        -- Opsi terakhir: Teleport random biasa (hopeless)
+        TPS:Teleport(PlaceID, Players.LocalPlayer)
+    end
+end
+
+-- Jalankan Tes
+DeepServerHop()
