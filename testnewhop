@@ -1,35 +1,31 @@
 --[[
-    CROSS-PLACE DEEP HOP
-    Tujuan: Mencari server kosong di MAP TUJUAN (Map 2), 
-    lalu teleport langsung ke sana dari mana saja.
+    AGGRESSIVE DEEP HOP (NO BOSS LOGIC)
+    Fitur:
+    1. Mencari server sampai 20 halaman (Deep Search).
+    2. Menarget server dengan slot kosong (MaxPlayers - 1).
+    3. Menggunakan TeleportToPlaceInstance (Paksa masuk ID tertentu).
+    4. Anti-Stuck: Jika gagal, coba lagi server lain di list.
 ]]
 
 local Http = game:GetService("HttpService")
 local TPS = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 
--- === KONFIGURASI PENTING ===
--- GANTI INI DENGAN ID MAP 2 (Tempat Boss berada)
--- Contoh: local TargetPlaceID = 1234567890
-local TargetPlaceID = 129009554587176 -- <--- MASUKKAN ID MAP 2 DI SINI
-
-print("--- MULAI PENCARIAN SERVER UNTUK MAP ID: " .. TargetPlaceID .. " ---")
-
-local function CrossPlaceHop()
-    if TargetPlaceID == 0 then
-        warn("⚠️ HARAP ISI TargetPlaceID DENGAN ID MAP 2 DULU!")
-        return
-    end
-
+local function AggressiveHop()
+    print("🚀 MEMULAI HOP SERVER AGRESIF (Current Map)...")
+    
+    local PlaceID = game.PlaceId
     local cursor = ""
-    local foundServer = false
+    local attempts = 0
     
-    print("Sedang mencari server sepi di Map Sebelah...")
-    
-    -- Loop Deep Search (Cari sampai halaman 10)
-    for i = 1, 10 do
-        -- Kita request daftar server milik TARGET PLACE ID, bukan game.PlaceId saat ini
-        local url = "https://games.roblox.com/v1/games/" .. TargetPlaceID .. "/servers/Public?sortOrder=Desc&limit=100"
+    -- Loop pencarian halaman (Cari server yang benar-benar fresh)
+    while attempts < 20 do
+        attempts = attempts + 1
+        
+        -- Ambil data server (Descending: Dari yang ramai ke sepi)
+        -- Kenapa Descending? Karena server sepi (1 player) seringkali server ngebug.
+        -- Kita cari server yang 'Hampir Penuh' tapi ada celah.
+        local url = "https://games.roblox.com/v1/games/" .. PlaceID .. "/servers/Public?sortOrder=Desc&limit=100"
         
         if cursor ~= "" then
             url = url .. "&cursor=" .. cursor
@@ -40,42 +36,50 @@ local function CrossPlaceHop()
         end)
         
         if success and result and result.data then
-            -- Cek halaman berikutnya
+            -- Simpan cursor untuk halaman berikutnya
             if result.nextPageCursor then
                 cursor = result.nextPageCursor
-            else
-                if i > 1 then break end
             end
             
+            -- Scan daftar server
             for _, server in pairs(result.data) do
-                -- Syarat:
-                -- 1. Bukan server JobID kita saat ini (jika kita sudah di Map 2)
-                -- 2. Belum penuh (playing < max - 1)
-                
-                if server.id ~= game.JobId and server.playing < (server.maxPlayers - 1) then
-                    print("✅ Ditemukan Server Map 2!")
-                    print("   ID: " .. server.id)
-                    print("   Ping: " .. (server.ping or "N/A"))
-                    print("   Player: " .. server.playing)
+                -- Syarat Mutlak:
+                -- 1. BUKAN JobID kita sekarang (Penting!)
+                -- 2. Slot pemain masih ada (playing < max)
+                if server.id ~= game.JobId and server.playing < server.maxPlayers then
                     
-                    -- TELEPORT LANGSUNG KE INSTANCE SPESIFIK DI MAP 2
-                    TPS:TeleportToPlaceInstance(TargetPlaceID, server.id, Players.LocalPlayer)
-                    foundServer = true
-                    break
+                    print("🎯 Target Ditemukan: " .. server.id)
+                    print("   Players: " .. server.playing .. "/" .. server.maxPlayers)
+                    
+                    -- COBA TELEPORT
+                    local tpSuccess, tpErr = pcall(function()
+                        TPS:TeleportToPlaceInstance(PlaceID, server.id, Players.LocalPlayer)
+                    end)
+                    
+                    if tpSuccess then
+                        print("⏳ Sedang Teleport...")
+                        return -- Stop fungsi, biarkan roblox teleport
+                    else
+                        warn("❌ Gagal TP ke server ini, cari yang lain...")
+                    end
                 end
             end
         end
         
-        if foundServer then break end
+        -- Jika belum nemu di halaman ini, lanjut halaman berikutnya
+        print("⚠️ Halaman " .. attempts .. " penuh/sama. Lanjut scan...")
         task.wait(0.5)
+        
+        -- Jika tidak ada halaman lagi, break
+        if not cursor or cursor == "" then
+            break
+        end
     end
     
-    if not foundServer then
-        print("❌ Gagal menemukan server kosong di Map 2.")
-        -- Opsional: Teleport biasa ke Map 2 (Biarkan Roblox yang pilih)
-        TPS:Teleport(TargetPlaceID, Players.LocalPlayer)
-    end
+    print("❌ GAGAL TOTAL: Tidak menemukan server lain setelah scan dalam.")
+    -- Opsi terakhir: Rejoin biasa (Pasrah)
+    TPS:Teleport(PlaceID, Players.LocalPlayer)
 end
 
--- Jalankan
-CrossPlaceHop()
+-- PANGGIL FUNGSI INI SAAT MAU HOP
+AggressiveHop()
