@@ -1,22 +1,54 @@
 --[[
-    BIG SCREEN ID
-    Menampilkan ID Map di tengah layar.
+    CROSS-PLACE HOP: LOW POPULATION HUNTER
+    Tujuan: Pindah ke Map 2 langsung menuju server yang sepi.
 ]]
 
-if not game:IsLoaded() then game.Loaded:Wait() end
+local Http = game:GetService("HttpService")
+local TPS = game:GetService("TeleportService")
+local Players = game:GetService("Players")
 
-local ScreenGui = Instance.new("ScreenGui")
-local TextLabel = Instance.new("TextLabel")
+-- === KONFIGURASI ===
+-- Masukkan Place ID Map 2 di sini!
+local TargetMap2_ID = 129009554587176 
 
-ScreenGui.Parent = game.CoreGui
-ScreenGui.Name = "ShowID"
+local function HopToLowPopServer()
+    if TargetMap2_ID == 0 then
+        warn("⚠️ ID MAP 2 BELUM DIISI!")
+        return
+    end
 
-TextLabel.Parent = ScreenGui
-TextLabel.BackgroundColor3 = Color3.new(0, 0, 0)
-TextLabel.BackgroundTransparency = 0.3
-TextLabel.Size = UDim2.new(1, 0, 0.3, 0) -- Lebar layar penuh
-TextLabel.Position = UDim2.new(0, 0, 0.35, 0) -- Di tengah
-TextLabel.Font = Enum.Font.SourceSansBold
-TextLabel.Text = "ID MAP INI:\n" .. game.PlaceId
-TextLabel.TextColor3 = Color3.new(1, 1, 0) -- Warna Kuning
-TextLabel.TextScaled = true -- Otomatis besar
+    print("🕵️ Mencari Server Map 2 yang sepi...")
+    
+    -- SortOrder=Asc artinya urutkan dari yang paling SEDIKIT pemainnya
+    local url = "https://games.roblox.com/v1/games/" .. TargetMap2_ID .. "/servers/Public?sortOrder=Asc&limit=100"
+    
+    local success, result = pcall(function()
+        return Http:JSONDecode(game:HttpGet(url))
+    end)
+    
+    if success and result and result.data then
+        for _, server in pairs(result.data) do
+            -- Syarat:
+            -- 1. Server tidak penuh
+            -- 2. BUKAN Server tempat kita sekarang (jika kita sudah di Map 2)
+            -- 3. Pemain > 0 (Hindari server glitch 0 player yang kadang error)
+            
+            if server.playing < server.maxPlayers and server.id ~= game.JobId and server.playing > 0 then
+                
+                print("✅ Ditemukan Server Sepi!")
+                print("   ID: " .. server.id)
+                print("   Jumlah Pemain: " .. server.playing)
+                print("   Ping: " .. (server.ping or "?"))
+                
+                TPS:TeleportToPlaceInstance(TargetMap2_ID, server.id, Players.LocalPlayer)
+                return -- Stop script setelah teleport
+            end
+        end
+        print("❌ Tidak menemukan server sepi di list 100 teratas.")
+    else
+        warn("❌ Gagal mengambil data server (HTTP Error).")
+    end
+end
+
+-- Eksekusi
+HopToLowPopServer()
