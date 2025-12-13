@@ -1,6 +1,9 @@
 --[[
-    CROSS-PLACE HOP: LOW POPULATION HUNTER
-    Tujuan: Pindah ke Map 2 langsung menuju server yang sepi.
+    CROSS-PLACE HOP: LOW POPULATION (MULTI-TRY V2)
+    Fitur: 
+    - Mengumpulkan banyak server sepi.
+    - Jika server pertama gagal (Full/Error), otomatis coba server berikutnya.
+    - Tidak berhenti sampai berhasil pindah.
 ]]
 
 local Http = game:GetService("HttpService")
@@ -8,18 +11,17 @@ local TPS = game:GetService("TeleportService")
 local Players = game:GetService("Players")
 
 -- === KONFIGURASI ===
--- Masukkan Place ID Map 2 di sini!
-local TargetMap2_ID = 129009554587176 
+local TargetMap2_ID = 129009554587176 -- GANTI DENGAN ID MAP 2
 
-local function HopToLowPopServer()
+local function HopToLowPopServer_V2()
     if TargetMap2_ID == 0 then
         warn("⚠️ ID MAP 2 BELUM DIISI!")
         return
     end
 
-    print("🕵️ Mencari Server Map 2 yang sepi...")
+    print("🕵️ Mengumpulkan daftar server sepi...")
     
-    -- SortOrder=Asc artinya urutkan dari yang paling SEDIKIT pemainnya
+    -- Ambil daftar server (Ascending = Dari yang paling sepi)
     local url = "https://games.roblox.com/v1/games/" .. TargetMap2_ID .. "/servers/Public?sortOrder=Asc&limit=100"
     
     local success, result = pcall(function()
@@ -27,28 +29,42 @@ local function HopToLowPopServer()
     end)
     
     if success and result and result.data then
+        local candidates = {}
+        
+        -- 1. Kumpulkan semua server yang valid
         for _, server in pairs(result.data) do
-            -- Syarat:
-            -- 1. Server tidak penuh
-            -- 2. BUKAN Server tempat kita sekarang (jika kita sudah di Map 2)
-            -- 3. Pemain > 0 (Hindari server glitch 0 player yang kadang error)
-            
             if server.playing < server.maxPlayers and server.id ~= game.JobId and server.playing > 0 then
-                
-                print("✅ Ditemukan Server Sepi!")
-                print("   ID: " .. server.id)
-                print("   Jumlah Pemain: " .. server.playing)
-                print("   Ping: " .. (server.ping or "?"))
-                
-                TPS:TeleportToPlaceInstance(TargetMap2_ID, server.id, Players.LocalPlayer)
-                return -- Stop script setelah teleport
+                table.insert(candidates, server)
             end
         end
-        print("❌ Tidak menemukan server sepi di list 100 teratas.")
+        
+        if #candidates == 0 then
+            print("❌ Tidak ada server sepi ditemukan.")
+            return
+        end
+        
+        print("✅ Menemukan " .. #candidates .. " server kandidat.")
+        
+        -- 2. Coba satu per satu (Looping Try)
+        for i, server in ipairs(candidates) do
+            print("🔄 [Percobaan " .. i .. "/" .. #candidates .. "] Mencoba masuk Server ID: " .. server.id)
+            print("   Ping: " .. (server.ping or "?") .. " | Players: " .. server.playing)
+            
+            -- Coba Teleport
+            TPS:TeleportToPlaceInstance(TargetMap2_ID, server.id, Players.LocalPlayer)
+            
+            -- 3. Mekanisme Tunggu & Cek
+            -- Kita tunggu 8 detik. Jika teleport berhasil, script akan mati sendiri (karena game close).
+            -- Jika setelah 8 detik script masih jalan, berarti TELEPORT GAGAL (Kena kick/full).
+            task.wait(8)
+            
+            print("⚠️ Gagal masuk (Server Full/Error). Mencoba kandidat berikutnya...")
+        end
+        
     else
-        warn("❌ Gagal mengambil data server (HTTP Error).")
+        warn("❌ Gagal mengambil data API.")
     end
 end
 
 -- Eksekusi
-HopToLowPopServer()
+HopToLowPopServer_V2()
