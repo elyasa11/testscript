@@ -1,0 +1,47 @@
+--[[
+    REJOIN BOOKMARK (PENGEMBALI)
+    Tujuan: Membaca file simpanan lalu memaksa masuk ke server tersebut.
+]]
+
+local Http = game:GetService("HttpService")
+local TPS = game:GetService("TeleportService")
+local Players = game:GetService("Players")
+
+local fileName = "bookmark_server.json"
+
+print("🔄 Mencoba kembali ke server idaman...")
+
+if isfile(fileName) then
+    local content = readfile(fileName)
+    local data = Http:JSONDecode(content)
+    
+    if data and data.jobId and data.placeId then
+        -- Cek apakah kita di Map yang benar?
+        if game.PlaceId == data.placeId then
+            print("🚀 Meluncur ke Server ID: " .. data.jobId)
+            
+            game:GetService("StarterGui"):SetCore("SendNotification", {
+                Title = "REJOINING...",
+                Text = "Kembali ke server simpanan...",
+                Duration = 5
+            })
+            
+            -- EKSEKUSI TELEPORT KHUSUS
+            TPS:TeleportToPlaceInstance(data.placeId, data.jobId, Players.LocalPlayer)
+        else
+            -- Jika beda map, script akan memindahkanmu ke map yang benar dulu
+            -- (Lalu kamu harus jalankan script ini lagi setelah sampai)
+            warn("⚠️ Kamu di Map yang salah! Pindah map dulu...")
+            TPS:TeleportToPlaceInstance(data.placeId, data.jobId, Players.LocalPlayer)
+        end
+    else
+        warn("❌ Data server rusak/kosong.")
+    end
+else
+    warn("❌ Belum ada server yang disimpan! Jalankan script Bookmark dulu.")
+    game:GetService("StarterGui"):SetCore("SendNotification", {
+        Title = "FILE TIDAK ADA",
+        Text = "Kamu belum menyimpan server apapun.",
+        Duration = 5
+    })
+end
