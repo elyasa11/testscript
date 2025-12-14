@@ -1,0 +1,29 @@
+--[[
+    SERVER BOOKMARK (PENYIMPAN)
+    Tujuan: Mencatat ID Server saat ini ke file agar bisa dimasuki lagi nanti.
+]]
+
+local Http = game:GetService("HttpService")
+local Players = game:GetService("Players")
+
+print("💾 Menyimpan Server Saat Ini...")
+
+-- Ambil Data Penting
+local ServerData = {
+    jobId = game.JobId,           -- ID Server Unik
+    placeId = game.PlaceId,       -- ID Map
+    name = "Server Bagus Pilihan Saya",
+    savedAt = os.time()
+}
+
+-- Simpan ke file 'bookmark_server.json'
+writefile("bookmark_server.json", Http:JSONEncode(ServerData))
+
+-- Notifikasi Berhasil
+game:GetService("StarterGui"):SetCore("SendNotification", {
+    Title = "SERVER DISIMPAN!",
+    Text = "ID Server telah diamankan.",
+    Duration = 5
+})
+
+print("✅ Server ID tersimpan: " .. game.JobId)
